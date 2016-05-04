@@ -1,0 +1,47 @@
+#! /bin/sh -e
+# ---
+# RightScript Name: Install open-vm-tools
+# Description: Installs open-vm-tools.
+# Inputs:
+#   OPEN_VM_TOOLS_INSTALL:
+#     Category: VMWare
+#     Description: Whether to install open-vm-tools.
+#     Input Type: single
+#     Required: true
+#     Advanced: true
+#     Default: text:false
+#     Possible Values:
+#     - text:false
+#     - text:true
+# Attachments:
+# - rs_distro.sh
+# ...
+
+# Installs open-vm-tools
+
+# Inputs:
+# $OPEN_VM_TOOLS_INSTALL
+
+if [ "$OPEN_VM_TOOLS_INSTALL" != 'true' ]; then
+  echo '$OPEN_VM_TOOLS_INSTALL not set to true, skipping.'
+  exit 0
+fi
+
+. "$RS_ATTACH_DIR/rs_distro.sh"
+
+case "$RS_DISTRO" in
+  debian|ubuntu)
+    sudo apt-get -y install open-vm-tools
+    sudo systemctl restart open-vm-tools
+  ;;
+  centos|redhatenterpriseserver)
+    sudo yum install -y open-vm-tools
+    sudo systemctl restart vmtoolsd
+  ;;
+  *)
+    echo 'Platform not yet supported, exiting.'
+    exit 1
+  ;;
+esac
+
+echo 'Done.'

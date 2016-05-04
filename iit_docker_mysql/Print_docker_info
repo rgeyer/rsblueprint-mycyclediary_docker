@@ -1,0 +1,11 @@
+#! /bin/sh -e
+# ---
+# RightScript Name: Print docker info
+# Description: Runs docker info.
+# Inputs: {}
+# Attachments: []
+# ...
+
+sudo docker info
+
+echo 'Done.'

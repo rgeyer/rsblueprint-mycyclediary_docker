@@ -1,0 +1,19 @@
+#!/usr/bin/sudo /bin/bash
+# ---
+# RightScript Name: APP Docker Services Fetch
+# Description: ""
+# Inputs:
+#   GIT_REPO:
+#     Category: Docker APP
+#     Description: A full git clone URI. I.E. git://github.com/rgeyer/somerepo/somebranch.git
+#     Input Type: single
+#     Required: true
+# Attachments: []
+# ...
+
+# This is a prerequisite for the APP_docker_services_(up|down) scripts. probably
+# a more elegant way to handle this.
+apt-get install -y ruby
+mkdir -p /var/lib/docker-compose
+cd /var/lib/docker-compose/
+git clone $GIT_REPO

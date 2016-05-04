@@ -1,0 +1,27 @@
+#! /bin/sh -ex
+# ---
+# RightScript Name: Deregister system with Red Hat
+# Description: Deregisters the system with Red Hat subscription manager (https://access.redhat.com/solutions/228883).
+# Inputs:
+#   REDHAT_USER:
+#     Category: Red Hat
+#     Description: Red Hat password to use when authorizing against the server.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: blank
+# Attachments: []
+# ...
+
+. /etc/profile.d/*proxy* > /dev/null 2>&1 || true
+
+if [ ! -z "$REDHAT_USER" ]; then
+  sudo -E subscription-manager unsubscribe --all
+  sudo -E subscription-manager unregister
+  sudo -E subscription-manager clean
+else
+  echo 'No Red Hat user provided, skipping Red Hat system de-registration.'
+  exit 0
+fi
+
+echo 'Done.'

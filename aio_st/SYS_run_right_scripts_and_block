@@ -1,0 +1,19 @@
+#! /bin/bash -e
+# ---
+# RightScript Name: SYS Run Right Scripts And Block
+# Description: (put your description here, it can be multiple lines using YAML syntax)
+# Inputs:
+#   RIGHTSCRIPT_IDS:
+#     Category: Boot Customization
+#     Description: An array of RightScript IDs to execute.
+#     Input Type: array
+#     Required: false
+#     Advanced: false
+# Attachments: []
+# ...
+
+IFS=',' read -a ids <<<"$RIGHTSCRIPT_IDS"
+
+for id in "${ids[@]}"; do
+  sudo /usr/local/bin/rsc --rl10 rl10 run_right_script /rll/run/right_script right_script_id=$id
+done

@@ -1,0 +1,30 @@
+#! /bin/sh -e
+# ---
+# RightScript Name: Create volume snapshots rl10
+# Description: Creates snapshots from an array of lineage/volume names attached to the
+#   instance. Intended for RightLink 10 usage only on server instances.
+# Inputs:
+#   VOLUME_SNAPSHOTTING_LINEAGES:
+#     Category: Backup
+#     Description: An array (comma separated) of attached volume snapshot lineages/names
+#       to snapshot on the instance.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+# Attachments:
+# - create_volume_snapshot-rl10.bash
+# ...
+
+# Inputs:
+# $VOLUME_SNAPSHOTTING_LINEAGES
+
+: "${VOLUME_SNAPSHOTTING_LINEAGES:=}"
+
+lineages=(${VOLUME_SNAPSHOTTING_LINEAGES//,/ })
+
+for lineage in "${lineages[@]}"
+do
+  sudo sh "$RS_ATTACH_DIR/create_volume_snapshot-rl10.bash" "$lineage"
+done
+
+echo 'Done.'

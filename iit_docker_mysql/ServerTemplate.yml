@@ -1,0 +1,155 @@
+Name: MySQL Server for Docker
+Description: "A minimal ServerTemplate for MySQL running on Docker, aiming to provide
+  a basic set of functionality for a standalone (non-HA) setup.\r\n\r\nBy default
+  a mysql container is run and port 3306 is set on the host. Data is only kept in
+  the container and will be lost if removed.\r\n\r\nUse with a separate (block) volume
+  on the host for the data is recommended:\r\n\r\n 1. After adding a server from the
+  ServerTemplate, create a new volume of the desired size in the same cloud/region
+  and attach it has a recurring attachment (/dev/sdm) on the Volumes tab of the 'Next'
+  instance of the server\r\n 2. Set input ADD_VOLUME_INITIALISE=text:true\r\n 3. Set
+  input MYSQL_DOCKER_VOLUME_MAP=text:/mnt/mysql-data:/var/lib/mysql\r\n 4. Set input
+  MYSQL_ROOT_PASSWORD with your desired value, preferably by RightScale credential\r\n
+  5. Configure any other inputs as desired in the MySQL category (e.g. database name,
+  database user)\r\n 6. Your server is ready to launch!\r\n\r\nFor support, contact
+  chris.fordham@industrieit.com.\r\n"
+Inputs:
+  ADD_VOLUME_BLOCK_DEVICE: text:/dev/xvdm
+  ADD_VOLUME_FS_TYPE: text:xfs
+  ADD_VOLUME_INITIALISE: text:false
+  ADD_VOLUME_MOUNT_POINT: text:/mnt/mysql-data
+  COLLECTD_SERVER: env:RS_TSS
+  CONTINUOUS_SNAPSHOT_LINEAGE_NAME: blank
+  DOCKER_DIR_INITIALISE: text:false
+  DOCKER_DIR_SAS_DEVICE: blank
+  DOCKER_DIR_VOLUME_SNAPSHOT_HREF: blank
+  DOCKER_DIR_VOLUME_TYPE_HREF: blank
+  DOCKER_GC_HOURLY: text:false
+  DOCKER_GC_WHITELIST_CONTAINERS: text:mysql
+  DOCKER_HTTP_PROXY: ignore
+  DOCKER_HTTPS_PROXY: ignore
+  DOCKER_NO_PROXY: ignore
+  HTTP_PROXY: blank
+  MYSQL_DATABASE: blank
+  MYSQL_DOCKER_ENTRY_SQL: blank
+  MYSQL_DOCKER_HOST_PORT: text:3306
+  MYSQL_DOCKER_VOLUME_MAP: blank
+  MYSQL_PASSWORD: blank
+  MYSQL_ROOT_PASSWORD: blank
+  MYSQL_USER: blank
+  NEW_RELIC_LICENSE_KEY: blank
+  NFS_MOUNTS: blank
+  ROUTE_53_RECORD_SET: blank
+  ROUTE_53_UPDATE_RECORD: text:false
+  ROUTE_53_ZONE_ID: blank
+  RS_INSTANCE_UUID: env:RS_INSTANCE_UUID
+  ULIMITS: blank
+  VOLUME_SNAPSHOTTING_LINEAGES: blank
+RightScripts:
+  Boot:
+  - RL10_Linux_Wait_For_EIP
+  - Register_system_with_Red_Hat
+  - Update_package_list
+  - SYS_hostname_set_RL_10
+  - Set_system_timezone
+  - Install_open-vm-tools
+  - Update_DNS_record_Route_53
+  - RL10_Linux_Setup_Automatic_Upgrade
+  - Configure_proxy_in_system_profile
+  - Install_configure_NTP
+  - Set_base_tags
+  - RL10_Linux_Collectd_skip_atomic
+  - Upgrade_system_packages
+  - Install_AWS_CLI
+  - Install_upgrade_Docker
+  - Add_users_to_docker_group
+  - Initialise_and_mount_Docker_directory_volume
+  - Install_docker-gc
+  - Install_New_Relic_Servers_for_Linux
+  - Mount_NFS_shares
+  - Set_system_ulimits
+  - Initialise_and_mount_additional_volume
+  - Run_MySQL_Server_Container
+  Decommission:
+  - RL10_Linux_Shutdown_Reason
+  - Deregister_system_with_Red_Hat
+  - Detach_and_delete_Docker_volume
+  Operational:
+  - RL10_Linux_Setup_Automatic_Upgrade
+  - RL10_Linux_Upgrade
+  - Shutdown_system
+  - Print_docker_info
+  - Create_volume_snapshots_rl10
+  - Setup_continuous_volume_snapshots_rl10
+MultiCloudImages:
+- Name: Debian_7.8_x64
+  Revision: 13
+- Name: RHEL_7.1_x64
+  Revision: 13
+- Name: CentOS_7.1_x64
+  Revision: 15
+- Name: Ubuntu_14.04_x64
+  Revision: 28
+- Name: Ubuntu_12.04_x64
+  Revision: 27
+- Name: CentOS_7.2_x64_KVM
+  Revision: 13
+- Name: Ubuntu_12.04_x64_KVM
+  Revision: 15
+- Name: Ubuntu_14.04_x64_KVM
+  Revision: 15
+- Name: RHEL Atomic Host 7.2 x86_64
+  Revision: 1
+- Name: CentOS Atomic Host 7 x86_64 HVM EBS
+  Revision: 1
+- Name: rhel-guest-image-7.2-20151102.0.x86_64
+  Revision: 1
+- Name: Ubuntu 15.04 Server
+  Revision: 2
+- Name: Ubuntu 15.10 Server
+  Revision: 1
+- Name: Ubuntu 15.04 (vivid) amd64 hvm-ssd
+  Revision: 2
+- Name: Ubuntu 14.04-LTS Server
+  Revision: 1
+- Name: RHEL_7.1_x64 (RL 10.2.1)
+  Revision: 1
+- Name: Debian_7.8_x64 (RL 10.2.1)
+  Revision: 1
+Alerts:
+- Name: rs high network tx activity
+  Description: Raise an alert if the amount of network data transmitted is too high.
+  Clause: If interface/if_octets-eth0.tx > 10000000 for 10 minutes Then escalate critical
+- Name: rs cpu overloaded
+  Description: Raise an alert when the cpu idle time is too low.
+  Clause: If cpu-0/cpu-idle.value < 3 for 5 minutes Then escalate critical
+- Name: rs low swap space
+  Description: Raise alert if the free swap space is too low.
+  Clause: If swap/swap-free.value < 104857600 for 5 minutes Then escalate critical
+- Name: rs instance terminated
+  Description: Raise an alert if the instance has been terminated abnormally, i.e.
+    not through the RightScale interface or by an elasticity daemon resizing server
+    arrays.
+  Clause: If RS/server.state == terminated for 1 minutes Then escalate critical
+- Name: rs memory low
+  Description: Raise an alert if free memory is too low.
+  Clause: If memory/memory-free.value < 1000000 for 1 minutes Then escalate critical
+- Name: rs low space in root partition
+  Description: Raise an alert if the available space in the root partition is too
+    low.
+  Clause: If df/df-root.free < 1073741824 for 5 minutes Then escalate critical
+- Name: rs cpu busy
+  Description: Raise an alert if the idle time is too low.
+  Clause: If cpu-0/cpu-idle.value < 15 for 3 minutes Then escalate warning
+- Name: rs cpu I/O wait
+  Description: Raise an alert disk io is too high.
+  Clause: If cpu-0/cpu-wait.value > 40 for 15 minutes Then escalate warning
+- Name: rs out of memory
+  Description: Raise an alert when the server is out of free memory.
+  Clause: If memory/memory-free.value == 0 for 1 minutes Then escalate critical
+- Name: rs instance not responding
+  Description: Raise an alert if the instance fails to send monitoring information
+    for 5 minutes.
+  Clause: If cpu-0/cpu-idle.value == NaN for 5 minutes Then escalate critical
+- Name: rs high network rx activity
+  Description: Raise an alert if the amount of network data received is too high.
+  Clause: If interface/if_octets-eth0.rx > 50000000 for 30 minutes Then escalate critical

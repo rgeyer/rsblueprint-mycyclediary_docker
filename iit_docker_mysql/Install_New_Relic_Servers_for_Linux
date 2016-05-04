@@ -1,0 +1,101 @@
+#! /bin/sh -e
+# ---
+# RightScript Name: Install New Relic Servers for Linux
+# Description: Installs New Relic Servers for Linux.
+# Inputs:
+#   NEW_RELIC_DOCKER:
+#     Category: New Relic
+#     Description: Wether to setup New Relic Servers for Linux for Docker.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:true
+#     Possible Values:
+#     - text:true
+#     - text:false
+#   NEW_RELIC_INSTALL:
+#     Category: New Relic
+#     Description: Whether to install and configure New Relic (true/false).
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:false
+#     Possible Values:
+#     - text:false
+#     - text:true
+#   NEW_RELIC_LICENSE_KEY:
+#     Category: New Relic
+#     Description: The license key for New Relic.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: blank
+# Attachments:
+# - docker_service.sh
+# - rs_distro.sh
+# ...
+
+# Install New Relic Servers for Linux
+
+# currently only supports x86_64 on Debian/Ubuntu and EL-based systems
+
+if [ ! "$NEW_RELIC_INSTALL" = 'true' ]; then
+  echo '$NEW_RELIC_INSTALL not set to true, skipping install.'
+  exit 0
+fi
+
+. "$RS_ATTACH_DIR/rs_distro.sh"
+
+# package installation
+case $RS_DISTRO in
+debian|ubuntu)
+  if ! grep 'deb http://apt.newrelic.com/debian/ newrelic non-free' /etc/apt/sources.list.d/newrelic.list; then
+    echo 'deb http://apt.newrelic.com/debian/ newrelic non-free' | sudo tee /etc/apt/sources.list.d/newrelic.list
+  fi
+
+  wget -O- https://download.newrelic.com/548C16BF.gpg | sudo apt-key add -
+  sudo apt-get -y update
+  sudo apt-get -y install newrelic-sysmond
+  ;;
+centos|redhat|redhatenterpriseserver)
+  if ! rpm -qa | grep newrelic-repo-5-3.noarch; then
+    echo 'Installing newrelic-sysmond...'
+    sudo rpm -Uvh https://yum.newrelic.com/pub/newrelic/el5/x86_64/newrelic-repo-5-3.noarch.rpm
+    sudo yum -y install newrelic-sysmond
+  fi
+  ;;
+*)
+  echo "distro '$RS_DISTRO' not supported, exiting."
+  exit 1
+  ;;
+esac
+
+echo 'Updating New Relic license key.'
+sudo nrsysmond-config --set "license_key=$NEW_RELIC_LICENSE_KEY"
+
+if [ ! -z "$http_proxy" ]; then
+  echo "Applying proxy config to settings..."
+  sudo sed -i "s%^#proxy=.*%proxy=$http_proxy%" /etc/newrelic/nrsysmond.cfg
+fi
+
+echo 'current /etc/newrelic/nrsysmond.cfg:'
+echo '---'
+sudo cat /etc/newrelic/nrsysmond.cfg
+echo '---'
+
+# https://docs.newrelic.com/docs/servers/new-relic-servers-linux/installation-configuration/enabling-new-relic-servers-docker
+if [ "$NEW_RELIC_DOCKER" = 'true' ]; then
+  if type docker; then
+    ! grep docker /etc/group && sudo groupadd -r docker
+    sudo usermod -a -G docker newrelic
+  fi
+  
+  # docker restart is required
+  . "$RS_ATTACH_DIR/docker_service.sh"
+  docker_service restart
+fi
+
+echo '(Re)Starting newrelic-sysmond service...'
+sudo /etc/init.d/newrelic-sysmond restart || sudo /etc/init.d/newrelic-sysmond start
+
+echo 'Done.'

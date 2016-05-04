@@ -1,0 +1,80 @@
+#! /bin/bash -e
+# ---
+# RightScript Name: Mount NFS shares
+# Description: Mounts a semi-colon separated list of NFS shares.
+# Inputs:
+#   NFS_FSTYPE:
+#     Category: NFS
+#     Description: The NFS fstype (global) (nfs||nfs4).
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:nfs
+#     Possible Values:
+#     - text:nfs
+#     - text:nfs4
+#   NFS_MOUNT_SHARES:
+#     Category: NFS
+#     Description: Whether to mount given NFS shares (true||false).
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:false
+#     Possible Values:
+#     - text:true
+#     - text:false
+#   NFS_MOUNTS:
+#     Category: NFS
+#     Description: NFS shares to mount (semi-colon separated).
+#     Input Type: single
+#     Required: false
+#     Advanced: false
+# Attachments: []
+# ...
+
+# Mounts a semi-colon separated list of NFS shares
+
+# Inputs:
+# $NFS_MOUNT_SHARES   Whether to mount given NFS shares (true||false)
+# $NFS_MOUNTS         NFS shares to mount (server:share:mountpoint:options)
+# $NFS_FSTYPE         The NFS fstype (global) (nfs||nfs4)
+#
+# in format server:share:mountpoint
+#     e.g. 10.0.0.1:/srv/nfs/music:/mnt/music:default;10.0.0.1:/srv/nfs/movies:/mnt/movies:default
+
+: "${NFS_MOUNT_SHARES:=false}"
+: "${NFS_MOUNTS:=}"
+: "${NFS_FSTYPE:=nfs}"
+
+if [ ! "$NFS_MOUNT_SHARES" = 'true' ]; then
+  echo '$NFS_MOUNT_SHARES not set to true, skipping.'
+  exit 0
+fi
+
+if type apt-get >/dev/null 2>&1; then
+  sudo apt-get -y install rpcbind nfs-common
+elif type yum >/dev/null 2>&1; then
+  sudo yum -y install nfs-utils nfs-utils-lib portmap
+fi
+
+mounts=(${NFS_MOUNTS//;/ })
+
+for mount in "${mounts[@]}"
+do
+  echo "processing ${mount}"
+
+  mount_elements=(${mount//:/ })
+
+  server="${mount_elements[0]}"
+  share="${mount_elements[1]}"
+  mountpoint="${mount_elements[2]}"
+  options="${mount_elements[3]}"
+
+  sudo mkdir -p "$mountpoint"
+
+  sudo mount -t "$NFS_FSTYPE" -o "$options" "$server:$share" "$mountpoint"
+  sleep 1
+  mount | grep "$server" | grep "$share"
+done
+
+echo 'Done.'

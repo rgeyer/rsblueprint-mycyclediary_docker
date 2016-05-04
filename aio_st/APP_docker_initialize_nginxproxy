@@ -1,0 +1,11 @@
+#!/usr/bin/sudo /bin/bash
+# ---
+# RightScript Name: APP Docker Initialize Nginxproxy
+# Description: ""
+# Inputs: {}
+# Attachments: []
+# ...
+
+mkdir -p /etc/ssl/nginxproxy
+
+docker run --name nginxproxy -d -p 80:80 -p 443:443 -v /etc/ssl/nginxproxy:/etc/nginx/certs -v /var/run/docker.sock:/tmp/docker.sock:ro jwilder/nginx-proxy

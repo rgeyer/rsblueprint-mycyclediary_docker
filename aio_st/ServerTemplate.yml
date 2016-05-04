@@ -1,0 +1,34 @@
+Name: RJG AIO WebApp docker
+Description: ""
+Inputs:
+  DOCKER_DIR_SAS_DEVICE: blank
+  DOCKER_DIR_VOLUME_SNAPSHOT_HREF: blank
+  DOCKER_DIR_VOLUME_TYPE_HREF: blank
+  GIT_REPO: blank
+  RIGHTSCRIPT_IDS: blank
+RightScripts:
+  Boot:
+  - RL10_Linux_Wait_For_EIP
+  - RL10_Linux_Setup_Hostname
+  - RL10_Linux_Enable_Monitoring
+  - RL10_Linux_Setup_Automatic_Upgrade
+  - Initialise_and_mount_Docker_directory_volume
+  - SYS_docker_install_latest
+  - SYS_docker-compose_install_latest
+  - APP_docker_services_Fetch
+  - APP_docker_initialize_nginxproxy
+  - SYS_Run_Right_Scripts_And_Block
+  - APP_docker_services_up
+  Decommission:
+  - RL10_Linux_Shutdown_Reason
+  Operational:
+  - APP_Docker_Services_Fetch
+  - APP_docker_services_up
+  - APP_docker_services_down
+  - RL10_Linux_Setup_Automatic_Upgrade
+  - RL10_Linux_Upgrade
+  - Initialise_and_mount_additional_volume
+MultiCloudImages:
+- Name: Ubuntu Wily RL10
+  Revision: 1
+Alerts: []

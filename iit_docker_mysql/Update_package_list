@@ -1,0 +1,15 @@
+#! /bin/bash -e
+# ---
+# RightScript Name: Update package list
+# Description: Updates the system package list for APT (skipped on systems where apt-get
+#   isn't found in path).
+# Inputs: {}
+# Attachments: []
+# ...
+
+if type -P apt-get > /dev/null 2>&1; then
+  echo 'Updating package list...'
+  sudo apt-get -y update
+fi
+
+echo 'Done.'

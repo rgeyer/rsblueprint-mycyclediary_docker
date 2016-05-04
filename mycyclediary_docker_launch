@@ -1,0 +1,70 @@
+#!/usr/bin/sudo /bin/bash
+# ---
+# RightScript Name: mycyclediary docker launch
+# Description: ""
+# Inputs:
+#   STRAVA_API_KEY:
+#     Category: My Cycle Diary
+#     Description: Your API Application Client ID
+#     Input Type: single
+#     Required: true
+#   STRAVA_API_SECRET:
+#     Category: My Cycle Diary
+#     Description: Your API Application Client Secret
+#     Input Type: single
+#     Required: true
+#   SSL_PRIVATE_KEY:
+#     Category: My Cycle Diary
+#     Description: Your SSL certificate private key
+#     Input Type: single
+#     Required: true
+#   SSL_CERTIFICATE:
+#     Category: My Cycle Diary
+#     Description: Your SSL certificate
+#     Input Type: single
+#     Required: true
+# Attachments: []
+# ...
+
+# Always docker-compose stop
+sudo /usr/local/bin/rsc --rl10 rl10 run_right_script /rll/run/right_script right_script="APP docker services down"
+
+# Move the docker-compose dir if there's a volume, and it isn't in use.
+if [ -n "`mount | grep /mnt/docker-compose`" ]; then
+  # It'll be a symlink later
+  if [ -d "/var/lib/docker-compose" ]; then
+    mv /var/lib/docker-compose/* /mnt/docker-compose/
+    rm -rf /var/lib/docker-compose
+    ln -sf /mnt/docker-compose /var/lib/docker-compose
+  fi
+fi
+
+# TODO: This only works for Ubuntu, probably should check and gracefully exist
+apt-get install -y cron
+cp /var/lib/docker-compose/mycyclediary_dot_com/mycyclediary_dot_com/settings/secrets.py.example /var/lib/docker-compose/mycyclediary_dot_com/mycyclediary_dot_com/settings/secrets.py
+cp /var/lib/docker-compose/mycyclediary_dot_com/dockerfiles/stravasync.cron /etc/cron.d/mycyclediary
+
+sed -i "s/@@SOCIAL_AUTH_STRAVA_KEY/$STRAVA_API_KEY/" /var/lib/docker-compose/mycyclediary_dot_com/mycyclediary_dot_com/settings/secrets.py
+sed -i "s/@@SOCIAL_AUTH_STRAVA_SECRET/$STRAVA_API_SECRET/" /var/lib/docker-compose/mycyclediary_dot_com/mycyclediary_dot_com/settings/secrets.py
+
+# TODO: Generate a self signed cert if there is not one, maybe upload a legit cert?
+if [ -z "$SSL_PRIVATE_KEY" ] || [ -z "$SSL_CERTIFICATE" ]; then
+  cd /etc/ssl/nginxproxy
+  openssl genrsa -des3 -passout pass:x -out test.key 2048
+  openssl rsa -passin pass:x -in test.pass.key -out test.key
+  rm test.pass.key
+  openssl req -new -key test.key -out test.csr \
+    -subj "/C=US/ST=California/CN=app.mycyclediary.com"
+  openssl x509 -req -days 365 -in test.csr -signkey test.key -out test.crt
+else
+  cat <<EOL > /etc/ssl/nginxproxy/app.mycyclediary.com.key
+$SSL_PRIVATE_KEY
+EOL
+  cat <<EOL > /etc/ssl/nginxproxy/app.mycyclediary.com.crt
+$SSL_CERTIFICATE
+EOL
+fi
+
+sudo /usr/local/bin/rsc --rl10 rl10 run_right_script /rll/run/right_script right_script="APP docker services up"
+
+docker exec mycyclediarydotcom_cyclediaryweb_1 python manage.py migrate

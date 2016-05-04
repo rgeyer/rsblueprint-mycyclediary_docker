@@ -1,0 +1,104 @@
+#! /bin/sh -e
+# ---
+# RightScript Name: Detach and delete Docker volume
+# Description: Unmounts, detaches and deletes the Docker directory volume (/var/lib/docker).
+# Inputs:
+#   DOCKER_DIR_BLOCK_DEVICE:
+#     Category: Docker
+#     Description: The block device for the Docker directory.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:/dev/xvdf
+#     Possible Values:
+#     - text:/dev/xvdf
+#   DOCKER_DIR_SAS_DEVICE:
+#     Category: Docker
+#     Description: The adapter device to de-attach the volume from (vSphere only).
+#     Input Type: single
+#     Required: false
+#     Advanced: false
+# Attachments:
+# - docker_service.sh
+# ...
+
+# this script expects rsc to be installed in /usr/local/bin (usually included with rightlink)
+
+. "$RS_ATTACH_DIR/docker_service.sh"
+
+: "${DOCKER_DIR_BLOCK_DEVICE:=/dev/sdb}"
+: "${DOCKER_DIR_SAS_DEVICE:=}"
+
+echo "Querying instance self..."
+instance_href=$(sudo /usr/local/bin/rsc --rl10 cm15 --x1 ':has(.rel:val("self")).href' index_instance_session /api/sessions/instance)
+server_href=$(sudo /usr/local/bin/rsc --rl10 --pp cm15 show --x1 ':has(.rel:val("parent")).href' "$instance_href")
+cloud_href=$(sudo /usr/local/bin/rsc --rl10 cm15 show "$instance_href" view=extended --x1 ':has(.rel:val("cloud")).href')
+datacenter_href=$(sudo /usr/local/bin/rsc --rl10 cm15 show "$instance_href" view=extended --x1 ':has(.rel:val("datacenter")).href')
+echo "cloud href:      $cloud_href"
+echo "instance href:   $instance_href"
+echo "server href:     $server_href"
+echo "datacenter href: $datacenter_href"
+
+# stop docker
+echo 'Stopping the docker service...'
+docker_service stop
+
+# unmount volume
+echo 'Unmounting /var/lib/docker...'
+if mount | grep /var/lib/docker; then
+  sudo umount /var/lib/docker
+else
+  echo '/var/lib/docker not currently mounted.'
+fi
+
+# currently, we will only detach and delete the volume if the block device special is found
+if [ ! -e "$DOCKER_DIR_BLOCK_DEVICE" ]; then
+  echo "$DOCKER_DIR_BLOCK_DEVICE not found, skipping volume detachment and deletion."
+  exit 0
+fi
+
+if [ ! -z "$DOCKER_DIR_SAS_DEVICE" ]; then
+  block_dev="$DOCKER_DIR_SAS_DEVICE"
+else
+  block_dev="$DOCKER_DIR_BLOCK_DEVICE"
+fi
+
+# get volume attachment
+volume_attachments_href=$(sudo /usr/local/bin/rsc --rl10 cm15 show "$instance_href" view=extended --x1 ':has(.rel:val("volume_attachments")).href')
+volume_attachment=$(sudo /usr/local/bin/rsc --rl10 cm15 index "$volume_attachments_href" --xj "object:has(.device:contains(\"$block_dev\"))")
+
+# if jq is not installed, lets install the linux binary
+if ! type jq > /dev/null 2>&1; then
+  echo 'Installing jq...'
+  source /etc/profile.d/*proxy* > /dev/null 2>&1 || true
+  curl -SsLk "https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64" | sudo tee /usr/local/bin/jq > /dev/null 2>&1
+  sudo chmod +x /usr/local/bin/jq
+  /usr/local/bin/jq --version
+fi
+
+volume_attachment_href=$(echo "$volume_attachment" | /usr/local/bin/jq '.[0] | {links }' | grep "/volume_attachments/" | awk -F '"' '{print $4}' | tr -d '\r' | tr -d '\n')
+volume_href=$(echo "$volume_attachment" | /usr/local/bin/jq '.[0] | {links }' | grep "/volumes/" | awk -F '"' '{print $4}' | tr -d '\r' | tr -d '\n')
+
+# detach volume
+echo "Destroying volume detachment, $volume_attachment_href..."
+sudo /usr/local/bin/rsc --rl10 cm15 destroy "$volume_attachment_href"
+
+# Some kind of RL10 bug appears to cache the api status to 'in-use' when
+# the volume is actually available
+# wait for detachment
+#echo "Waiting for the volume ($volume_href) to be detached..."
+#while sleep 2s; do
+#  status=$(sudo /usr/local/bin/rsc --rl10 cm15 show "$volume_href" --x1 .status)
+#  echo "($status)"
+#  if [ "$status" = 'available' ]; then
+#    break
+#  fi
+#done
+
+sleep 20
+
+# delete volume
+echo "Deleting volume, $volume_href..."
+sudo /usr/local/bin/rsc --rl10 cm15 destroy "$volume_href"
+
+echo 'Done.'

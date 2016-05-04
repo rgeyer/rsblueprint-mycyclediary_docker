@@ -1,0 +1,59 @@
+#! /bin/bash -ex
+# ---
+# RightScript Name: Install AWS CLI
+# Description: Install AWS CLI
+# Inputs:
+#   AWS_CLI_SETUP_DEFAULT_CONFIG:
+#     Category: AWS CLI
+#     Description: ""
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:false
+#     Possible Values:
+#     - text:true
+#     - text:false
+# Attachments:
+# - rs_distro.sh
+# ...
+
+source "$RS_ATTACH_DIR/rs_distro.sh"
+
+if [ "$RS_DISTRO" = 'atomichost' ]; then
+  echo 'Red Hat Enterprise Linux Atomic Host not yet supported, but will exit gracefully.'
+  exit 0
+fi
+
+# PIP is in /usr/local/bin
+export PATH=$PATH:/usr/local/bin
+
+if ! type aws >/dev/null 2>&1; then
+  if ! type pip >/dev/null 2>&1; then
+    if type apt-get >/dev/null 2>&1; then
+      sudo apt-get -y update
+      sudo apt-get -y install python python-pip
+    elif type yum >/dev/null 2>&1; then
+      sudo yum -y install python python-pip
+    fi
+  fi
+  sudo pip install awscli
+fi
+
+if [ "$AWS_CLI_SETUP_DEFAULT_CONFIG" = 'true' ]; then
+
+  # Get instance region from metadata
+  availability_zone=`curl http://169.254.169.254/latest/meta-data/placement/availability-zone`
+  region=${availability_zone%?}
+
+  # Create default config for aws cli
+  mkdir -p ~/.aws
+  if [ ! -e ~/.aws/config ]; then
+  cat <<EOF> ~/.aws/config
+[default]
+region = ${region}
+output = json
+EOF
+  fi
+fi
+
+echo 'Done.'

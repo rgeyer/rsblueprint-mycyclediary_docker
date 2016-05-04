@@ -1,0 +1,40 @@
+#! /usr/bin/sudo /bin/sh
+# ---
+# RightScript Name: Configure proxy in system profile
+# Description: Sets a proxy in /etc/profile.d/10-proxy.sh.
+# Inputs:
+#   HTTP_PROXY:
+#     Category: System
+#     Description: The URL to the HTTP (web) proxy to use on the system (if required).
+#     Input Type: single
+#     Required: false
+#     Advanced: false
+#     Possible Values:
+#     - text:http://localhost:3128/
+#     - text:http://localhost:8080/
+#   NO_PROXY:
+#     Category: System
+#     Description: The hostnames to exclude from proxy usage on the system.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:localhost,localhost.localdomain
+# Attachments: []
+# ...
+
+if [ -z $HTTP_PROXY ]; then
+  echo 'No $HTTP_PROXY provided, skipping.'
+  exit 0
+fi
+
+echo 'Setting proxy in /etc/profile.d/10-proxy.sh'
+cat <<EOF> /etc/profile.d/10-proxy.sh
+export http_proxy=$HTTP_PROXY
+export https_proxy=$HTTP_PROXY
+EOF
+
+if [ ! -z $NO_PROXY ]; then
+  echo export no_proxy="$NO_PROXY" >> /etc/profile.d/10-proxy.sh
+fi
+
+echo 'Done.'

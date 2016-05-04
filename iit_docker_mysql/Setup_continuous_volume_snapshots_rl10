@@ -1,0 +1,82 @@
+#!/bin/bash -e
+# ---
+# RightScript Name: Setup continuous volume snapshots rl10
+# Description: Set's up continuous volume snapshots via cron.
+# Inputs:
+#   CONTINUOUS_SNAPSHOT_CRON_SCHEDULE:
+#     Category: Backup
+#     Description: The cron schedule to use, e.g. 30 2 * * *
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:30 2 * * *
+#     Possible Values:
+#     - text:30 2 * * *
+#   CONTINUOUS_SNAPSHOT_LINEAGE_NAME:
+#     Category: Backup
+#     Description: The name of the volume/lineage to snapshot.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#   CONTINUOUS_SNAPSHOT_PRUNE_AGE:
+#     Category: Backup
+#     Description: The age or younger of volume snapshots to keep in hour(s).
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:672
+#     Possible Values:
+#     - text:24
+#     - text:168
+#     - text:336
+#     - text:504
+#     - text:672
+# Attachments:
+# - prune_volume_snapshot_lineage.rl10.bash
+# - create_volume_snapshot.rl10.bash
+# ...
+
+# RightScript: Setup continuous volume snapshots rl10
+
+# Inputs:
+# CONTINUOUS_SNAPSHOT_CRON_SCHEDULE
+# CONTINUOUS_SNAPSHOT_LINEAGE_NAME
+# CONTINUOUS_SNAPSHOT_PRUNE_AGE
+
+# Attachments:
+# create_volume_snapshot.rl10.bash
+# prune_volume_snapshot_lineage.rl10.bash
+
+: "${CONTINUOUS_SNAPSHOT_CRON_SCHEDULE:=30 2 * * *}"
+: "${CONTINUOUS_SNAPSHOT_LINEAGE_NAME:=}"
+: "${CONTINUOUS_SNAPSHOT_PRUNE_AGE:=672}"
+
+# age is in hours
+# 1d = 24
+# 1w = 168
+# 2w = 336
+# 3w = 504
+# 4w = 672
+
+# install attachment scripts
+sudo mkdir -p /usr/local/bin
+sudo cp "$RS_ATTACH_DIR/create_volume_snapshot.rl10.bash" /usr/local/bin/
+sudo cp "$RS_ATTACH_DIR/prune_volume_snapshot_lineage.rl10.bash" /usr/local/bin/
+sudo chmod +x /usr/local/bin/*.bash
+
+# create the log file
+# rightlink user has no default shell so use the rightscale user
+sudo touch "/var/log/cron-snapshots-$CONTINUOUS_SNAPSHOT_LINEAGE_NAME.log"
+sudo chown rightscale:rightscale "/var/log/cron-snapshots-$CONTINUOUS_SNAPSHOT_LINEAGE_NAME.log"
+
+job="$CONTINUOUS_SNAPSHOT_CRON_SCHEDULE    (/usr/local/bin/create_volume_snapshot.rl10.bash $CONTINUOUS_SNAPSHOT_LINEAGE_NAME; /usr/local/bin/prune_volume_snapshot_lineage.rl10.bash $CONTINUOUS_SNAPSHOT_LINEAGE_NAME $CONTINUOUS_SNAPSHOT_PRUNE_AGE) >> /var/log/cron-snapshots-$CONTINUOUS_SNAPSHOT_LINEAGE_NAME.log 2>&1"
+echo 'Cron job:'
+echo "$job"
+
+# in case host /etc/sudoers configures tty requirement (cron has no tty)
+sudo sed -i '/Defaults \+requiretty/s/^/#/' /etc/sudoers
+
+echo 'Updating crontab'
+cat <(fgrep -i -v "create_volume_snapshot" <(crontab -l)) <(echo "$job") | sudo crontab -u rightscale -
+
+echo 'Done.'

@@ -1,0 +1,171 @@
+#! /bin/bash -e
+# ---
+# RightScript Name: Run MySQL Server Container
+# Description: Runs a MySQL server container.
+# Inputs:
+#   MYSQL_ALLOW_EMPTY_PASSWORD:
+#     Category: MySQL
+#     Description: Allow root with empty password (optional).
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:no
+#     Possible Values:
+#     - text:no
+#     - text:yes
+#   MYSQL_DATABASE:
+#     Category: MySQL
+#     Description: Database to create (optional) which the additional MySQL user will
+#       be grant all privileges to.
+#     Input Type: single
+#     Required: false
+#     Advanced: false
+#   MYSQL_DOCKER_CONTAINER_NAME:
+#     Category: MySQL
+#     Description: The name of the mysql container.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:mysql
+#     Possible Values:
+#     - text:mysql
+#     - text:mysqld
+#   MYSQL_DOCKER_ENTRY_SQL:
+#     Category: MySQL
+#     Description: SQL statements to run with entrypoint into the MySQL container.
+#     Input Type: single
+#     Required: false
+#     Advanced: false
+#   MYSQL_DOCKER_HOST_PORT:
+#     Category: MySQL
+#     Description: Expose the MySQL service on the host (optional).
+#     Input Type: single
+#     Required: false
+#     Advanced: false
+#     Possible Values:
+#     - text:3306
+#     - text:33306
+#   MYSQL_DOCKER_IMAGE:
+#     Category: MySQL
+#     Description: The MySQL docker image.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:mysql
+#     Possible Values:
+#     - text:mysql
+#   MYSQL_DOCKER_IMAGE_TAG:
+#     Category: MySQL
+#     Description: The MySQL docker image tag.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:latest
+#     Possible Values:
+#     - text:latest
+#     - text:5.7
+#     - text:5.6
+#     - text:5.5
+#     - text:5.0
+#   MYSQL_DOCKER_VOLUME_MAP:
+#     Category: MySQL
+#     Description: A volume mapping, usually used to bind to the host e.g. -v /mnt/mysql-data:/var/lib/mysql
+#       (optional).
+#     Input Type: single
+#     Required: false
+#     Advanced: false
+#     Possible Values:
+#     - text:/mnt/mysql-data:/var/lib/mysql
+#     - text:/var/lib/mysql:/var/lib/mysql
+#     - text:/var/lib/mysql-docker:/var/lib/mysql
+#     - text:/mnt/mysql:/var/lib/mysql
+#   MYSQL_PASSWORD:
+#     Category: MySQL
+#     Description: Password for the additional MySQL user (optional).
+#     Input Type: single
+#     Required: false
+#     Advanced: false
+#   MYSQL_ROOT_PASSWORD:
+#     Category: MySQL
+#     Description: The MySQL server root password.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#   MYSQL_USER:
+#     Category: MySQL
+#     Description: Optional additional MySQL user to create.
+#     Input Type: single
+#     Required: false
+#     Advanced: false
+# Attachments: []
+# ...
+
+# Uses by default https://hub.docker.com/_/mysql/
+
+# Inputs:
+#
+# Used by the script:
+# $MYSQL_DOCKER_CONTAINER_NAME
+# $MYSQL_DOCKER_IMAGE
+# $MYSQL_DOCKER_IMAGE_TAG
+# $MYSQL_DOCKER_HOST_PORT
+# $MYSQL_DOCKER_ENTRY_SQL
+# $MYSQL_DOCKER_VOLUME_MAP
+#
+# Used by the image with environment variables:
+# $MYSQL_DATABASE
+# $MYSQL_ROOT_PASSWORD
+# $MYSQL_USER
+# $MYSQL_PASSWORD
+# $MYSQL_ALLOW_EMPTY_PASSWORD
+
+: "${MYSQL_DOCKER_CONTAINER_NAME:=mysql}"
+: "${MYSQL_DOCKER_IMAGE:=mysql}"
+: "${MYSQL_DOCKER_IMAGE_TAG:=latest}"
+: "${MYSQL_DOCKER_HOST_PORT:=}"
+: "${MYSQL_DOCKER_ENTRY_SQL:=}"
+: "${MYSQL_DOCKER_VOLUME_MAP:=}"
+: "${MYSQL_DATABASE:=}"
+: "${MYSQL_ROOT_PASSWORD:=}"
+: "${MYSQL_USER:=}"
+: "${MYSQL_PASSWORD:=}"
+: "${MYSQL_ALLOW_EMPTY_PASSWORD:=no}"
+
+[ ! -z "$MYSQL_DATABASE" ] && createdb="-e MYSQL_DATABASE=$MYSQL_DATABASE"
+[ ! -z "$MYSQL_DOCKER_HOST_PORT" ] && ports="-p $MYSQL_DOCKER_HOST_PORT:3306"
+
+[ ! -z "$MYSQL_USER" ] && \
+  user="-e MYSQL_USER=$MYSQL_USER -e MYSQL_PASSWORD=$MYSQL_PASSWORD"
+
+[ ! -z "$MYSQL_ALLOW_EMPTY_PASSWORD" ] && \
+  emptypass="-e MYSQL_ALLOW_EMPTY_PASSWORD=$MYSQL_ALLOW_EMPTY_PASSWORD"
+
+[ ! -z "$MYSQL_DOCKER_VOLUME_MAP" ] && \
+  volume="-v $MYSQL_DOCKER_VOLUME_MAP"
+
+[ ! -z "$MYSQL_ROOT_PASSWORD" ] && \
+  rootpass="-e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD"
+
+if [ ! -z "$MYSQL_DOCKER_ENTRY_SQL" ]; then
+  echo "$MYSQL_DOCKER_ENTRY_SQL" > /tmp/entry-sql.sql
+  entrysql="-v /tmp/entry-sql.sql:/docker-entrypoint-initdb.d/entry-sql.sql"
+fi
+
+echo 'Running mysql container'
+
+set -x
+
+# sudo is being used because new groups are not being picked up with some images
+sudo -E docker run --name "$MYSQL_DOCKER_CONTAINER_NAME" \
+  $ports \
+  $user \
+  $emptypass \
+  $createdb \
+  $rootpass \
+  $volume \
+  $entrysql \
+  -d "$MYSQL_DOCKER_IMAGE":"$MYSQL_DOCKER_IMAGE_TAG"
+
+{ set +x; } 2>/dev/null
+
+echo 'Done.'

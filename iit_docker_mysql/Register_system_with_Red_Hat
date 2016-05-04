@@ -1,0 +1,45 @@
+#! /bin/sh -ex
+# ---
+# RightScript Name: Register system with Red Hat
+# Description: Registers the system with Red Hat subscription manager (https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/System_Administrators_Guide/chap-Subscription_and_Support-Registering_a_System_and_Managing_Subscriptions.html).
+# Inputs:
+#   REDHAT_PASSWORD:
+#     Category: Red Hat
+#     Description: Red Hat username to use when authorizing against the server.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: blank
+#   REDHAT_POOL_ID:
+#     Category: Red Hat
+#     Description: Red Hat subscription pool ID to subscribe with.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: blank
+#   REDHAT_USER:
+#     Category: Red Hat
+#     Description: Red Hat password to use when authorizing against the server.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: blank
+# Attachments: []
+# ...
+
+. /etc/profile.d/*proxy* > /dev/null 2>&1 || true
+
+if [ ! -z "$REDHAT_USER" ]; then
+  [ -z "$REDHAT_POOL_ID" ] && opts='--auto-attach'
+ 
+  sudo -E subscription-manager register --force --username="$REDHAT_USER" --password="$REDHAT_PASSWORD" "$opts"
+  
+  sudo -E subscription-manager list --available --all
+
+  [ ! -z "$REDHAT_POOL_ID" ] && sudo -E subscription-manager attach --pool="$REDHAT_POOL_ID"
+else
+  echo 'No Red Hat user provided, skipping Red Hat system registration.'
+  exit 0
+fi
+
+echo 'Done.'

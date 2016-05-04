@@ -1,0 +1,37 @@
+#! /bin/sh -e
+# ---
+# RightScript Name: Upgrade system packages
+# Description: Runs apt-get upgrade or yum update.
+# Inputs:
+#   SYSTEM_UPGRADE:
+#     Category: System
+#     Description: Upgrades the system's installed packages.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:true
+#     Possible Values:
+#     - text:true
+#     - text:false
+# Attachments: []
+# ...
+
+set -x
+
+if [ ! "$SYSTEM_UPGRADE" = 'true' ]; then
+  echo '$SYSTEM_UPGRADE not set to true, skipping.'
+  exit 0
+fi
+
+echo 'Upgrading system...'
+
+if type apt-get >/dev/null 2>&1; then
+  sudo DEBIAN_FRONTEND=noninteractive apt-get --assume-yes -o Dpkg::Options::="--force-confnew" upgrade
+elif type yum >/dev/null 2>&1; then
+  sudo yum -y update
+else
+  echo 'os/distro not yet supported, skipping.'
+  exit 0
+fi
+
+echo 'Done.'

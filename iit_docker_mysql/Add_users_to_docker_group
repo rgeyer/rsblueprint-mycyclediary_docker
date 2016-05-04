@@ -1,0 +1,37 @@
+#! /bin/bash -e
+# ---
+# RightScript Name: Add users to docker group
+# Description: Adds a given list of users to the system docker group (generally for
+#   using the docker command without sudo).
+# Inputs:
+#   DOCKER_GROUP_USERS:
+#     Category: Docker
+#     Description: An array of users to add to the systemd docker group.
+#     Input Type: array
+#     Required: false
+#     Advanced: false
+#     Default: array:["text:rightscale","text:rightlink"]
+# Attachments: []
+# ...
+
+# Inputs:
+# $DOCKER_GROUP_USERS    An array of users to add to the systemd docker group
+
+# ensure the docker group exists
+echo 'Adding docker group'
+if ! grep docker /etc/group >/dev/null 2>&1; then
+  sudo groupadd docker
+else
+  echo 'docker group already exists'
+fi
+
+# rightscale provides the rightscript array input as a flattend string
+# (http://docs.rightscale.com/cm/rs101/understanding_inputs.html)
+docker_users=(${DOCKER_GROUP_USERS//,/ })
+
+for user in "${docker_users[@]}"; do
+  echo "Adding user, $user"
+  sudo usermod -aG docker "$user"
+done
+
+echo 'Done.'

@@ -1,0 +1,85 @@
+#! /bin/bash -e
+# ---
+# RightScript Name: Install docker-gc
+# Description: Installs the spotify/docker-gc script plus the hourly cron job. Option
+#   provided to run docker-gc once-off after install.
+# Inputs:
+#   DOCKER_GC_HOURLY:
+#     Category: Docker
+#     Description: Whether to run docker-gc hourly via cron.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:true
+#     Possible Values:
+#     - text:true
+#     - text:false
+#   DOCKER_GC_RUNONCE:
+#     Category: Docker
+#     Description: Whether to run docker-gc once-off at the end of this script.
+#     Input Type: single
+#     Required: true
+#     Advanced: false
+#     Default: text:true
+#     Possible Values:
+#     - text:true
+#     - text:false
+#   DOCKER_GC_WHITELIST_CONTAINERS:
+#     Category: Docker
+#     Description: Comman separated list of containers to exclude potential removal
+#       by docker-gc.
+#     Input Type: single
+#     Required: false
+#     Advanced: true
+# Attachments:
+# - rs_distro.sh
+# ...
+
+source "$RS_ATTACH_DIR/rs_distro.sh"
+
+if [ "$RS_DISTRO" = 'atomichost' ]; then
+  echo 'Red Hat Enterprise Linux Atomic Host not yet supported, but will exit gracefully.'
+  exit 0
+fi
+
+sudo mkdir -p /usr/local/bin
+
+echo 'Copying script to /usr/local/bin/docker-gc'
+curl -Ss https://raw.githubusercontent.com/spotify/docker-gc/master/docker-gc | sudo tee /usr/local/bin/docker-gc > /dev/null
+
+if [ ! -z "$DOCKER_GC_WHITELIST_CONTAINERS" ]; then
+  echo 'Updating container whitelist at /etc/docker-gc-exclude-containers'
+  [ -e /etc/docker-gc-exclude-containers ] && sudo rm /etc/docker-gc-exclude-containers
+  sudo touch /etc/docker-gc-exclude-containers
+  whitelist=(${DOCKER_GC_WHITELIST_CONTAINERS//,/ })
+  for c in "${whitelist[@]}"
+  do
+    echo "$c" | sudo tee -a /etc/docker-gc-exclude-containers
+  done
+fi
+
+if [ "$DOCKER_GC_HOURLY" = 'true' ]; then
+  echo 'Installing cron job'
+cat <<'EOF'> /tmp/docker-gc
+#!/bin/sh
+
+echo "docker-gc start: $(date)" >> /var/log/docker-gc.log
+/usr/local/bin/docker-gc >> /var/log/docker-gc.log
+echo "docker-gc finish: $(date)" >> /var/log/docker-gc.log
+
+EOF
+
+  sudo mv -v /tmp/docker-gc /etc/cron.hourly/00docker-gc
+  sudo chown root:root /etc/cron.hourly/00docker-gc
+  sudo chmod +x /etc/cron.hourly/00docker-gc
+fi
+
+if [ "$DOCKER_GC_RUNONCE" = 'true' ]; then
+  echo 'Running docker-gc'
+  sudo chmod +x /usr/local/bin/docker-gc
+  set +e
+  sudo /usr/local/bin/docker-gc
+  set -e
+fi
+
+echo 'Done.'

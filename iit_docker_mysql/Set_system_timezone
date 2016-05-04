@@ -1,0 +1,76 @@
+#!/bin/bash -ex
+# ---
+# RightScript Name: Set system timezone
+# Description: |-
+#   Sets the server timezone.
+# 
+#   **Launch**
+# 
+#   Updates the timezone to the one specified in the SYS\_TZINFO input variable selected from the pull-down menu.  If "localtime" is selected then the timezone will not be changed from the current/installed setting.
+# 
+#   **Reboot**
+# 
+#   No actions are taken.  If you have changed the value it will remain set to your selection.
+# 
+#   **Operation Script**
+# 
+#   Will change the timezone setting to the value of SYS\_TZINFO
+# Inputs:
+#   SYS_TZINFO:
+#     Category: System
+#     Description: 'Sets the system time to the timezone of the specified input, which
+#       must be a valid zoneinfo/tz database entry.  If the input is ''unset'' the timezone
+#       will use the ''localtime'' that''s defined in your RightScale account under
+#       Settings -> User -> Preferences tab.  You can find a list of valid examples
+#       from the timezone pulldown bar in the Preferences tab.   Ex: US/Pacific, US/Eastern'
+#     Input Type: single
+#     Required: true
+#     Advanced: true
+#     Default: text:UTC
+#     Possible Values:
+#     - text:US/Central
+#     - text:Europe/London
+#     - text:Europe/Helsinki
+#     - text:localtime
+#     - text:GMT
+#     - text:Europe/Paris
+#     - text:US/Eastern
+#     - text:Europe/Moscow
+#     - text:US/Mountain
+#     - text:UTC
+#     - text:US/Pacific
+#     - text:Australia/Sydney
+#     - text:Australia/Melbourne
+# Attachments: []
+# ...
+#
+# Copyright (c) 2008-2011 RightScale, Inc, All Rights Reserved Worldwide.
+#
+
+#
+# Test for a reboot,  if this is a reboot just skip this script.
+#
+if test "$RS_REBOOT" = "true" ; then
+  echo "Skip re-setting Timezone on reboot."
+  exit 0 # Leave with a smile ...
+fi
+
+#
+# If this parameter is not set leave unchanged and use localtime
+#
+if [ "$SYS_TZINFO" = "localtime" ]; then
+  echo "SYS_TZINFO set to localtime.  Not changing /etc/localtime..."
+  exit 0
+else
+  tzset="$SYS_TZINFO"
+fi
+
+#
+# Set the Timezone
+#
+sudo ln -sfv /usr/share/zoneinfo/$tzset /etc/localtime
+echo "Timezone set to $tzset"
+
+logger -t RightScale "Timezone set to $tzset"
+
+exit 0

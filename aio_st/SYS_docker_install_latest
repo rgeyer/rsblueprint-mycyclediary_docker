@@ -1,0 +1,9 @@
+#!/usr/bin/sudo /bin/bash
+# ---
+# RightScript Name: SYS docker install latest
+# Description: Installs Docker client and daemon.
+# Inputs: {}
+# Attachments: []
+# ...
+
+docker --version || (curl -sSL https://get.docker.com/ | sh)

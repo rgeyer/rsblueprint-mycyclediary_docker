@@ -1,0 +1,9 @@
+#!/bin/sh -e
+# ---
+# RightScript Name: Shutdown system
+# Description: Shuts down (halt) the system.
+# Inputs: {}
+# Attachments: []
+# ...
+
+sudo shutdown -h now
